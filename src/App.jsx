@@ -6,13 +6,16 @@ function App() {
   const [formData, setFormData] = useState({ first_name: '', last_name: '', email: '', position: '', salary: '' })
   const [editId, setEditId] = useState(null)
 
-  // --- ส่วนที่เพิ่มมาใหม่ (สำหรับ Popup ฝึกอบรม) ---
-  const [showModal, setShowModal] = useState(false)       // เปิด/ปิด Popup
-  const [selectedEmp, setSelectedEmp] = useState(null)    // พนักงานที่ถูกเลือก
-  const [trainingList, setTrainingList] = useState([])    // รายการฝึกอบรม
-  const [newCourse, setNewCourse] = useState({ course_name: '', training_date: '' }) // ฟอร์มเพิ่มคอร์สใหม่
+  // --- State สำหรับ Popup ฝึกอบรม ---
+  const [showModal, setShowModal] = useState(false)
+  const [selectedEmp, setSelectedEmp] = useState(null)
+  const [trainingList, setTrainingList] = useState([])
+  const [newCourse, setNewCourse] = useState({ course_name: '', training_date: '' })
 
-  // 1. โหลดข้อมูลพนักงานทั้งหมด
+  // --- State สำหรับค้นหา (เพิ่มใหม่) ⭐ ---
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // 1. โหลดข้อมูลพนักงาน
   const fetchEmployees = () => {
     fetch('http://localhost:3000/api/employees')
       .then(res => res.json())
@@ -20,7 +23,7 @@ function App() {
       .catch(err => console.error("Error:", err))
   }
 
-  // 2. โหลดประวัติฝึกอบรม (เมื่อกดปุ่มดู)
+  // 2. โหลดประวัติฝึกอบรม
   const fetchTraining = (empId) => {
     fetch(`http://localhost:3000/api/employees/${empId}/training`)
       .then(res => res.json())
@@ -29,7 +32,7 @@ function App() {
 
   useEffect(() => { fetchEmployees() }, [])
 
-  // --- ฟังก์ชั่นจัดการพนักงาน (CRUD เดิม) ---
+  // --- ฟังก์ชั่นจัดการพนักงาน ---
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
   
   const handleEdit = (emp) => {
@@ -69,10 +72,10 @@ function App() {
     } catch (error) { alert("❌ ลบไม่สำเร็จ") }
   }
 
-  // --- ฟังก์ชั่นจัดการ Popup ฝึกอบรม ---
+  // --- ฟังก์ชั่นจัดการ Popup ---
   const openTrainingModal = (emp) => {
     setSelectedEmp(emp)
-    fetchTraining(emp.id) // ดึงข้อมูลทันทีที่กดเปิด
+    fetchTraining(emp.id)
     setShowModal(true)
   }
 
@@ -91,16 +94,27 @@ function App() {
         body: JSON.stringify(newCourse)
       })
       if (response.ok) {
-        fetchTraining(selectedEmp.id) // โหลดรายการใหม่มาโชว์
-        setNewCourse({ course_name: '', training_date: '' }) // ล้างช่องกรอก
+        fetchTraining(selectedEmp.id)
+        setNewCourse({ course_name: '', training_date: '' })
       }
     } catch (error) { alert("❌ เพิ่มรายการไม่สำเร็จ") }
   }
 
+  // --- ฟิลเตอร์ข้อมูลตามคำค้นหา (หัวใจสำคัญ!) ⭐ ---
+  const filteredEmployees = employees.filter(emp => {
+    const text = searchTerm.toLowerCase()
+    return (
+      emp.first_name.toLowerCase().includes(text) ||
+      emp.last_name.toLowerCase().includes(text) ||
+      emp.position.toLowerCase().includes(text) ||
+      emp.email.toLowerCase().includes(text)
+    )
+  })
+
   return (
     <div className="min-h-screen bg-gray-100 p-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">🚀 ระบบจัดการพนักงาน (Full Stack)</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">🚀 ระบบจัดการพนักงาน (Full Stack + Search)</h1>
 
         {/* --- ฟอร์มหลัก --- */}
         <div className={`p-6 rounded-xl shadow-lg mb-8 transition-colors duration-300 ${editId ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-white'}`}>
@@ -126,6 +140,21 @@ function App() {
           </form>
         </div>
 
+        {/* --- ช่องค้นหา (Search Bar) ⭐ --- */}
+        <div className="mb-4 flex justify-between items-center bg-white p-4 rounded-xl shadow-md">
+          <h2 className="text-xl font-bold text-gray-700">📋 รายชื่อพนักงาน ({filteredEmployees.length} คน)</h2>
+          <div className="relative">
+            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            <input 
+              type="text" 
+              placeholder="ค้นหาชื่อ, ตำแหน่ง..." 
+              className="pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
         {/* --- ตารางแสดงผล --- */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <table className="w-full text-left border-collapse">
@@ -139,66 +168,49 @@ function App() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {employees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-indigo-50 transition-colors">
-                  <td className="p-4 text-gray-500">#{emp.id}</td>
-                  <td className="p-4 font-medium text-gray-800">
-                    {emp.first_name} {emp.last_name}
-                    <div className="text-xs text-gray-400">{emp.email}</div>
-                  </td>
-                  <td className="p-4"><span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{emp.position}</span></td>
-                  <td className="p-4 text-right font-mono text-gray-700">{Number(emp.salary).toLocaleString()}</td>
-                  <td className="p-4 text-center space-x-2">
-                    {/* ปุ่มดูประวัติการฝึกอบรม */}
-                    <button onClick={() => openTrainingModal(emp)} className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200">
-                      📜 ประวัติฝึกอบรม
-                    </button>
-                    <button onClick={() => handleEdit(emp)} className="text-sm bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200">แก้ไข</button>
-                    <button onClick={() => handleDelete(emp.id)} className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200">ลบ</button>
-                  </td>
-                </tr>
-              ))}
+              {filteredEmployees.length === 0 ? (
+                <tr><td colSpan="5" className="p-8 text-center text-gray-400 text-lg">❌ ไม่พบข้อมูลที่ค้นหา</td></tr>
+              ) : (
+                filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-indigo-50 transition-colors">
+                    <td className="p-4 text-gray-500">#{emp.id}</td>
+                    <td className="p-4 font-medium text-gray-800">
+                      {emp.first_name} {emp.last_name}
+                      <div className="text-xs text-gray-400">{emp.email}</div>
+                    </td>
+                    <td className="p-4"><span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{emp.position}</span></td>
+                    <td className="p-4 text-right font-mono text-gray-700">{Number(emp.salary).toLocaleString()}</td>
+                    <td className="p-4 text-center space-x-2">
+                      <button onClick={() => openTrainingModal(emp)} className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200">📜 ประวัติ</button>
+                      <button onClick={() => handleEdit(emp)} className="text-sm bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200">แก้ไข</button>
+                      <button onClick={() => handleDelete(emp.id)} className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200">ลบ</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* --- MODAL POPUP (หน้าต่างเด้ง) --- */}
+      {/* --- MODAL POPUP (เหมือนเดิม) --- */}
       {showModal && selectedEmp && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden">
-            {/* หัวข้อ Modal */}
             <div className="bg-purple-600 text-white p-4 flex justify-between items-center">
               <h3 className="text-xl font-bold">📚 ประวัติการฝึกอบรม: {selectedEmp.first_name} {selectedEmp.last_name}</h3>
               <button onClick={closeTrainingModal} className="text-white hover:text-gray-200 text-2xl font-bold">&times;</button>
             </div>
-
             <div className="p-6">
-              {/* ฟอร์มเพิ่มคอร์สเรียน (ใน Modal) */}
               <form onSubmit={handleAddTraining} className="flex gap-2 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <input 
-                  type="text" placeholder="ชื่อหลักสูตร" required 
-                  className="flex-1 input-field"
-                  value={newCourse.course_name}
-                  onChange={(e) => setNewCourse({...newCourse, course_name: e.target.value})}
-                />
-                <input 
-                  type="date" required 
-                  className="input-field w-40"
-                  value={newCourse.training_date}
-                  onChange={(e) => setNewCourse({...newCourse, training_date: e.target.value})}
-                />
+                <input type="text" placeholder="ชื่อหลักสูตร" required className="flex-1 input-field" value={newCourse.course_name} onChange={(e) => setNewCourse({...newCourse, course_name: e.target.value})} />
+                <input type="date" required className="input-field w-40" value={newCourse.training_date} onChange={(e) => setNewCourse({...newCourse, training_date: e.target.value})} />
                 <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">เพิ่ม</button>
               </form>
-
-              {/* รายการประวัติ */}
               <div className="max-h-60 overflow-y-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-100 text-gray-600 text-sm uppercase">
-                    <tr>
-                      <th className="p-3">หลักสูตร</th>
-                      <th className="p-3">วันที่อบรม</th>
-                    </tr>
+                    <tr><th className="p-3">หลักสูตร</th><th className="p-3">วันที่อบรม</th></tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {trainingList.length === 0 ? (
@@ -207,9 +219,7 @@ function App() {
                       trainingList.map((t) => (
                         <tr key={t.id}>
                           <td className="p-3 font-medium text-gray-800">{t.course_name}</td>
-                          <td className="p-3 text-gray-600">
-                            {new Date(t.training_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                          </td>
+                          <td className="p-3 text-gray-600">{new Date(t.training_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
                         </tr>
                       ))
                     )}
@@ -217,8 +227,6 @@ function App() {
                 </table>
               </div>
             </div>
-
-            {/* ปุ่มปิดด้านล่าง */}
             <div className="bg-gray-100 p-4 text-right">
               <button onClick={closeTrainingModal} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">ปิดหน้าต่าง</button>
             </div>
