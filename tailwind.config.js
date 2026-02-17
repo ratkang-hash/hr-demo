@@ -5,7 +5,12 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        // บังคับให้ฟอนต์หลัก (sans) เป็น Kanit
+        sans: ['Kanit', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }
